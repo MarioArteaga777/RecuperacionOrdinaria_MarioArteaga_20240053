@@ -8,8 +8,8 @@ import {
 document.addEventListener('DOMContentLoaded', () => {
 
     const tableBody = document.querySelector('table tbody');
-    const productModal = new bootstrap.Modal(document.getElementById('productModal'));
     const productForm = document.getElementById('productForm');
+    const productModal = new bootstrap.Modal(document.getElementById('productModal'));
     const lblModal = document.getElementById('productModalLabel');
     const btnAdd = document.getElementById('openModalBtn');
 
@@ -19,191 +19,120 @@ document.addEventListener('DOMContentLoaded', () => {
     const stockProductoInput = document.getElementById('stockProducto');
     const descripcionProductoInput = document.getElementById('descripcionProducto');
 
-    loadProducts();
-
-    async function getProductById(id) {
-        const products = await getProducts();
-        return products.find(product => parseInt(product.id) === parseInt(id));
-    }
-
-    function createTable(datos) {
-        tableBody.innerHTML = "";
-
-        if (!datos || datos.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="7" class="text-center">No hay productos disponibles</td></tr>';
-            return;
-        }
-
-        datos.forEach(producto => {
-            const tr = document.createElement("tr");
-            tr.innerHTML = `
-                <td>${producto.id}</td>
-                <td>${producto.nombreProducto}</td>
-                <td>${producto.categoriaProducto}</td>
-                <td>${producto.descripcionProducto || ''}</td>
-                <td>$${parseFloat(producto.precioProducto).toFixed(2)}</td>
-                <td>${producto.stockProducto}</td>
-                <td>
-                    <button class="btn btn-sm btn-outline-secondary edit-btn">Editar</button>
-                    <button class="btn btn-sm btn-outline-danger delete-btn">Eliminar</button>
-                </td>
-            `;
-
-            tr.querySelector(".edit-btn").addEventListener("click", () => {
-                editProduct(producto.id);
-            });
-
-            tr.querySelector(".delete-btn").addEventListener('click', () => {
-                deleteProductHandler(producto.id);
-            });
-
-            tableBody.appendChild(tr);
-        });
-    }
+    init();
 
     async function loadProducts() {
+
         try {
-            const data = await getProducts();
-            createTable(data);
-        } catch (error) {
-            console.error("Error al cargar productos:", error);
+            const products = await getProducts();
+            tableBody.innerHTML = "";
+
+            if (!products || products.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="7" class="text-center">Actualmente no hay productos</td></tr>';
+                return;
+            }
+
+            products.forEach((prod) => {
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td>${prod.id}</td>
+                    <td>${prod.nombreProducto}</td>
+                    <td>${prod.categoriaProducto}</td>
+                    <td>${prod.descripcionProducto || ''}</td>
+                    <td>$${parseFloat(prod.precioProducto).toFixed(2)}</td>
+                    <td>${prod.stockProducto}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-secondary edit-btn">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-square-pen"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"/></svg>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger delete-btn">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash"><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        </button>
+                    </td>
+                `;
+
+                tr.querySelector(".edit-btn").addEventListener("click", () => {
+                    productForm.productId.value = prod.id;
+                    nombreProductoInput.value = prod.nombreProducto;
+                    categoriaProductoInput.value = prod.categoriaProducto;
+                    precioProductoInput.value = prod.precioProducto;
+                    stockProductoInput.value = prod.stockProducto;
+                    descripcionProductoInput.value = prod.descripcionProducto;
+
+                    lblModal.textContent = "Editar Producto";
+                    productModal.show();
+                });
+
+                tr.querySelector(".delete-btn").addEventListener('click', () => {
+                    if (confirm("¿Desea eliminar este producto?")) {
+                        deleteProduct(prod.id)
+                            .then(loadProducts)
+                            .catch(err => {
+                                console.error("Error al eliminar producto: ", err);
+                                alert("Hubo un error al eliminar el registro.");
+                            });
+                    }
+                });
+
+                tableBody.appendChild(tr);
+            });
+        } catch (err) {
+            console.error("Error cargando productos: ", err);
             tableBody.innerHTML = '<tr><td colspan="7" class="text-center">Error al cargar datos. Ver consola.</td></tr>';
         }
     }
 
-    btnAdd.addEventListener("click", () => {
+    function init() {
+        loadProducts();
+    }
+
+    btnAdd.addEventListener('click', () => {
         productForm.reset();
         productForm.productId.value = '';
-        lblModal.textContent = 'Nuevo Producto';
-        clearValidationMessages();
+        lblModal.textContent = 'Agregar Producto';
         productModal.show();
     });
 
-    function showValidationMessage(inputElement, message) {
-        let errorDiv = inputElement.nextElementSibling;
-        
-        if (!errorDiv || !errorDiv.classList.contains('invalid-feedback-custom')) {
-            errorDiv = document.createElement('div');
-            errorDiv.classList.add('invalid-feedback-custom', 'text-danger', 'mt-1');
-            inputElement.parentNode.insertBefore(errorDiv, inputElement.nextSibling);
-        }
-        
-        inputElement.classList.add('is-invalid');
-        errorDiv.textContent = message;
-    }
-
-    function clearValidationMessages() {
-        document.querySelectorAll('.is-invalid').forEach(el => {
-            el.classList.remove('is-invalid');
-        });
-        document.querySelectorAll('.invalid-feedback-custom').forEach(el => {
-            el.remove();
-        });
-    }
-
-    function validateForm(data) {
-        let isValid = true;
-        clearValidationMessages();
-
-        if (data.nombreProducto.length < 3 || data.nombreProducto.length > 100) {
-            showValidationMessage(nombreProductoInput, "El nombre debe tener entre 3 y 100 caracteres.");
-            isValid = false;
-        }
-
-        if (data.categoriaProducto === "" || data.categoriaProducto === "Seleccione una categoría") {
-            showValidationMessage(categoriaProductoInput, "Debe seleccionar una categoría.");
-            isValid = false;
-        }
-
-        if (isNaN(data.precioProducto) || data.precioProducto <= 0) {
-            showValidationMessage(precioProductoInput, "El precio debe ser un número positivo mayor a 0.");
-            isValid = false;
-        }
-
-        if (isNaN(data.stockProducto) || !Number.isInteger(data.stockProducto) || data.stockProducto < 0) {
-            showValidationMessage(stockProductoInput, "El stock debe ser un número entero no negativo.");
-            isValid = false;
-        }
-        
-        if (data.descripcionProducto.length < 10 || data.descripcionProducto.length > 500) {
-             showValidationMessage(descripcionProductoInput, "La descripción debe tener entre 10 y 500 caracteres.");
-             isValid = false;
-         }
-
-        return isValid;
-    }
-
-    productForm.addEventListener("submit", async e => {
+    productForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        
-        const id = productForm.productId.value;
-        const nombreProducto = nombreProductoInput.value.trim();
-        const categoriaProducto = categoriaProductoInput.value.trim();
-        const precioProducto = parseFloat(precioProductoInput.value.trim());
-        const stockProducto = parseInt(stockProductoInput.value.trim());
-        const descripcionProducto = descripcionProductoInput.value.trim();
 
-        const data = {nombreProducto, categoriaProducto, precioProducto, stockProducto, descripcionProducto};
+        const id = productForm.productId.value;
+        const data = {
+            nombreProducto: nombreProductoInput.value.trim(),
+            categoriaProducto: categoriaProductoInput.value.trim(),
+            precioProducto: precioProductoInput.value.trim(),
+            stockProducto: stockProductoInput.value.trim(),
+            descripcionProducto: descripcionProductoInput.value.trim()
+        };
         
-        if (!validateForm(data)) {
-            return;
+        const precio = parseFloat(data.precioProducto);
+        const stock = parseInt(data.stockProducto);
+        
+        if (!data.nombreProducto || !data.categoriaProducto || isNaN(precio) || precio <= 0 || isNaN(stock) || stock < 0) {
+             alert('Completa todos los campos correctamente. Asegúrate que Nombre, Categoría y Descripción no estén vacíos, que el Precio sea positivo y el Stock no sea negativo.');
+             return;
         }
         
+        data.precioProducto = precio;
+        data.stockProducto = stock;
+
+
         try {
             if (id) {
-                await updateProduct(id, data); 
+                await updateProduct(id, data);
                 alert("Producto actualizado correctamente");
             } else {
-                await createProduct(data); 
+                await createProduct(data);
                 alert("Producto agregado correctamente");
             }
-            
+
             productForm.reset();
-            clearValidationMessages();
             productModal.hide();
-            loadProducts();
-            
-        } catch (error) {
-            console.error("Error en la operación: ", error);
-            alert(" Hubo un error al guardar/actualizar el producto.");
+            await loadProducts();
+        } catch (err) {
+            console.error("Error en la operación: ", err);
+            alert("Hubo un error al guardar/actualizar el producto.");
         }
     });
-    
-    async function editProduct(id) {
-        try {
-            const producto = await getProductById(id);
-            if (!producto) {
-                alert("Producto no encontrado.");
-                return;
-            }
-            
-            productForm.productId.value = producto.id;
-            nombreProductoInput.value = producto.nombreProducto;
-            categoriaProductoInput.value = producto.categoriaProducto;
-            precioProductoInput.value = producto.precioProducto;
-            stockProductoInput.value = producto.stockProducto;
-            descripcionProductoInput.value = producto.descripcionProducto;
-            
-            lblModal.textContent = 'Editar Producto';
-            clearValidationMessages();
-            productModal.show();
-        } catch (err) {
-            console.error("Error al cargar producto para edición: ", err);
-            alert("Hubo un error al cargar los datos del producto.");
-        }
-    }
-
-    async function deleteProductHandler(id) {
-        if (confirm("¿Estás seguro que deseas borrar este producto?")) {
-            try {
-                await deleteProduct(id); 
-                alert(" El registro fue eliminado correctamente");
-                loadProducts();
-            } catch (error) {
-                console.error("Error al eliminar: ", error);
-                alert("Hubo un error al eliminar el registro.");
-            }
-        }
-    }
 
 });
